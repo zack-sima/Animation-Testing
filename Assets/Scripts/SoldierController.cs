@@ -54,10 +54,10 @@ public class SoldierController : MonoBehaviour {
 		float horizontalMove = Input.GetAxisRaw("Horizontal");
 		float verticalMove = Input.GetAxisRaw("Vertical");
 
-		//running
+		//running (pc)
 		float speed = walkSpeed;
 		if (Input.GetKey(KeyCode.LeftShift) && verticalMove > 0 && !Input.GetMouseButton(1)) {
-			verticalMove *= 1.7f;
+			verticalMove = 1.7f;
 			speed = runSpeed;
 			animator.running = true;
 		} else {
@@ -69,7 +69,11 @@ public class SoldierController : MonoBehaviour {
 		translation += transform.right * (horizontalMove * Time.deltaTime);
 		translation *= speed;
 		translation = rigidbody.position + translation;
+
 		animator.walkAnimationSpeed = Mathf.Abs(verticalMove + horizontalMove / 2f);
+		if (!animator.running && animator.walkAnimationSpeed > 1f) {
+			animator.walkAnimationSpeed = 1f; //prevents running animation from walking sideways
+		}
 
 		//camera vertical rotation (x)
 		float vertical = -Input.GetAxis("Mouse Y") * Time.deltaTime * 1.5f;
@@ -85,10 +89,21 @@ public class SoldierController : MonoBehaviour {
 	}
 	private void Actions() {
 		//aiming
-		if (Input.GetMouseButton(1)) {
+		if (!animator.GetReloading() && Input.GetMouseButton(1)) {
 			animator.aiming = true;
 		} else {
 			animator.aiming = false;
+		}
+
+		//reloading
+		if (Input.GetKeyDown(KeyCode.R)) {
+			animator.Reload();
+		}
+
+		//shooting
+		if (!animator.running && (Input.GetMouseButton(0) && animator.fullAuto ||
+			Input.GetMouseButtonDown(0) && !animator.fullAuto)) {
+			animator.AttemptShootBullet();
 		}
 	}
 }
