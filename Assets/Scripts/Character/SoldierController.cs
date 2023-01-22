@@ -111,7 +111,7 @@ public class SoldierController : MonoBehaviour {
 
 		//reloading
 		if (Input.GetKeyDown(KeyCode.R) && !animator.GetReloading()) {
-			animator.Reload(soundOn: false);
+			animator.Reload();
 
 			//multiplayer trigger
 			if (isMultiplayer) multiplayerControl.Reload();
@@ -124,8 +124,10 @@ public class SoldierController : MonoBehaviour {
 
 			animator.ShootBullet();
 
+			//todo: singleplayer implementation
+
 			//multiplayer trigger
-			if (isMultiplayer) multiplayerControl.ShootBullet();
+			if (isMultiplayer) multiplayerControl.ShootBullet(animator.gun.GetDamage());
 		}
 
 		//multiplayer sync variables

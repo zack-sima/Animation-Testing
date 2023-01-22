@@ -507,6 +507,7 @@ MonoBehaviour:
   spawnPrefabs: []
   timeInterpolationGui: 0
   placeholderCamera: {fileID: 1500251481}
+  players: []
 --- !u!114 &1894756659
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -521,7 +522,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Port: 7777
   DualMode: 1
-  NoDelay: 1
+  NoDelay: 0
   Interval: 10
   Timeout: 10000
   FastResend: 2

@@ -12,15 +12,25 @@ public class MultiplayerSoldier : NetworkBehaviour {
 	public bool running, aiming;
 	[SyncVar]
 	public float walkAnimationSpeed, runAnimationSpeed;
+	[SyncVar]
+	public double health;
+
+	public readonly double maxHealth = 100;
+
+	private List<KeyValuePair<double, Vector3>> deltaPositions; //for lag compensation, remember the past 30 frames (~500ms)
 
 	private SoldierAnimator animator;
+	private SoldierController controller;
 
 	private void Start() {
+		deltaPositions = new List<KeyValuePair<double, Vector3>>();
 		animator = GetComponent<SoldierAnimator>();
+		controller = GetComponent<SoldierController>();
+
 		if (isLocalPlayer) {
 			//everything else by default on
 			mainCamera.SetActive(true);
-			GetComponent<SoldierController>().StartMultiplayer(this);
+			controller.StartMultiplayer(this);
 		} else {
 			GetComponent<SoldierController>().enabled = false;
 			GetComponent<Rigidbody>().isKinematic = true;
@@ -28,6 +38,43 @@ public class MultiplayerSoldier : NetworkBehaviour {
 
 			mainCamera.SetActive(false);
 		}
+	}
+	private void Update() {
+		deltaPositions.Add(new KeyValuePair<double, Vector3>(NetworkTime.time, transform.position));
+		if (deltaPositions.Count > 30) deltaPositions.RemoveAt(0);
+
+		//sync animations
+		if (!isLocalPlayer) {
+			animator.running = running;
+			animator.aiming = aiming;
+			animator.walkAnimationSpeed = walkAnimationSpeed;
+			animator.runAnimatonSpeed = runAnimationSpeed;
+		}
+	}
+	private Vector3 tempDeltaPosition = Vector3.zero;
+	public void RewindPosition(double lagMS) {
+		//iterates from oldest to newest position saved
+		for (int i = 0; i < deltaPositions.Count; i++) {
+			//last element
+			if (i == deltaPositions.Count - 1) {
+				print("rewinded " + lagMS + " seconds");
+				tempDeltaPosition = transform.position;
+				transform.position = deltaPositions[i].Value;
+				return;
+			}
+
+			//if timestamp is greater than current time - lag, use this first frame
+			if (deltaPositions[i].Key > NetworkTime.time - lagMS) {
+				print("rewinded " + lagMS + " seconds");
+				tempDeltaPosition = transform.position;
+				transform.position = deltaPositions[i].Value;
+				return;
+			}
+		}
+	}
+	//must be called after rewind position!
+	public void UnRewindPosition() {
+		transform.position = tempDeltaPosition;
 	}
 
 	[Command]
@@ -47,9 +94,37 @@ public class MultiplayerSoldier : NetworkBehaviour {
 		this.runAnimationSpeed = runAnimationSpeed;
 	}
 
+	[Client]
+	public void ShotSuccessful() {
+		//todo: plays the hit sound and logs shot
+		print("hit!");
+	}
 	[Command]
-	public void ShootBullet() {
-		//rewind for lag compensation and check raycasting here
+	public void ShootBullet(int damage) {
+		//rewind everyone except self for lag compensation and check raycasting here
+		double lag = NetworkTime.rtt / 2; //lag between caller and server
+		foreach (MultiplayerSoldier s in MultiplayerManager.instance.players) {
+			if (s) { //check that script exists (player didn't leave)
+				s.RewindPosition(lag); //rewind all players
+			}
+		}
+
+		RaycastHit hit;
+		if (Physics.Raycast(animator.gun.raycastAnchor.position, animator.gun.raycastAnchor.forward, out hit, 200f)) {
+			MultiplayerSoldier hitEnemy;
+			if (hit.collider.TryGetComponent<MultiplayerSoldier>(out hitEnemy)) {
+				hitEnemy.health -= damage;
+				ShotSuccessful();
+
+				print(hit.collider.name + " lost " + damage + " health");
+			}
+		}
+
+		foreach (MultiplayerSoldier s in MultiplayerManager.instance.players) {
+			if (s) { //check that script exists (player didn't leave)
+				s.UnRewindPosition(); //return players to original positions
+			}
+		}
 
 		//client animation
 		ClientShootBullet();
@@ -65,6 +140,6 @@ public class MultiplayerSoldier : NetworkBehaviour {
 	}
 	[ClientRpc] //called on all clients to show animation
 	public void ClientReload() {
-		animator.Reload();
+		animator.Reload(soundOn: false);
 	}
 }

@@ -9,7 +9,6 @@ public class SoldierAnimator : MonoBehaviour {
 	private Animator animator;
 	[SerializeField]
 	private Transform stomach, cameraHold; //change cameraHold position for recoil effect
-
 	public Gun gun; //the gun currently in use
 
 	//edited by controllers

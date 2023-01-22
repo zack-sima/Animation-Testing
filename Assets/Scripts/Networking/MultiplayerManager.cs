@@ -7,8 +7,13 @@ public class MultiplayerManager : NetworkManager {
 	public static MultiplayerManager instance;
 	public GameObject placeholderCamera;
 
+	[HideInInspector]
+	public List<MultiplayerSoldier> players;
+
 	new private void Start() {
 		base.Start();
+		players = new List<MultiplayerSoldier>();
+		instance = this;
 	}
 
 	//all clients
@@ -19,5 +24,26 @@ public class MultiplayerManager : NetworkManager {
 		placeholderCamera.SetActive(true);
 	}
 
+	//spawn
+	public override void OnServerAddPlayer(NetworkConnectionToClient conn) {
+		// add player at correct spawn position
+		GameObject player = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
+
+		//note: make sure the object exists when accessing
+		players.Add(player.GetComponent<MultiplayerSoldier>());
+		NetworkServer.AddPlayerForConnection(conn, player);
+	}
+	public override void OnServerDisconnect(NetworkConnectionToClient conn) {
+		//clear out any destroyed player scripts
+		int i = 0;
+		while (i < players.Count) {
+			if (players[i] == null) {
+				players.RemoveAt(i);
+				print("removed player");
+			} else {
+				i++;
+			}
+		}
+	}
 
 }

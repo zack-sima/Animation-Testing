@@ -6,6 +6,7 @@ public class Gun : MonoBehaviour {
 	public List<Sprite> muzzleSprites;
 	public SpriteRenderer muzzleRenderer;
 	public AudioSource gunSound, reloadSound;
+	public Transform raycastAnchor;
 
 	//constants
 	[SerializeField]
@@ -16,6 +17,8 @@ public class Gun : MonoBehaviour {
 	private int maxBullets, magSize;
 	[SerializeField]
 	private float shootSpeed, recoil, maxRecoil;
+	[SerializeField]
+	private int damage;
 
 	[HideInInspector]
 	public int bullets, magBullets; //current ammo
@@ -25,6 +28,9 @@ public class Gun : MonoBehaviour {
 		magBullets = magSize;
 	}
 
+	public int GetDamage() {
+		return damage;
+	}
 	public string GetGunId() {
 		return gunId;
 	}
