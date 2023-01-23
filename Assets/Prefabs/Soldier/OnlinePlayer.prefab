@@ -63,22 +63,6 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 1874854247679820307, guid: 97ccd7564942f41b997b1fe95166f9d9, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.012432245
-      objectReference: {fileID: 0}
-    - target: {fileID: 1874854247679820307, guid: 97ccd7564942f41b997b1fe95166f9d9, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0.8676046
-      objectReference: {fileID: 0}
-    - target: {fileID: 1874854247679820307, guid: 97ccd7564942f41b997b1fe95166f9d9, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0.0038236931
-      objectReference: {fileID: 0}
-    - target: {fileID: 1874854247679820307, guid: 97ccd7564942f41b997b1fe95166f9d9, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0.49708465
-      objectReference: {fileID: 0}
     - target: {fileID: 5110037879452357233, guid: 97ccd7564942f41b997b1fe95166f9d9, type: 3}
       propertyPath: m_LocalRotation.w
       value: 0.92359966
@@ -139,6 +123,11 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0.1
   mainCamera: {fileID: 497276326717181654}
+  running: 0
+  aiming: 0
+  walkAnimationSpeed: 0
+  runAnimationSpeed: 0
+  health: 0
 --- !u!114 &185212011171580857
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -180,6 +169,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1f2ba7e38e55749879ec6be62c34149c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  isMultiplayer: 0
   walkSpeed: 1.25
   runSpeed: 1.9
   rotateSpeed: 300

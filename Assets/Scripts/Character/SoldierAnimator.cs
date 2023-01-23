@@ -10,6 +10,9 @@ public class SoldierAnimator : MonoBehaviour {
 	[SerializeField]
 	private Transform stomach, cameraHold; //change cameraHold position for recoil effect
 	public Gun gun; //the gun currently in use
+	public AudioSource hitSound; //successful hit
+	[SerializeField]
+	private GameObject deathDummyPrefab; //dummy that is set to current positions upon death (where self character is hidden)
 
 	//edited by controllers
 	[HideInInspector]
@@ -22,6 +25,7 @@ public class SoldierAnimator : MonoBehaviour {
 	public float shootTimer = 0;
 
 	private float currentRecoil = 0;
+	private bool isDead = false;
 
 	private void Start() {
 		walkAnimationSpeed = 0;
@@ -29,6 +33,11 @@ public class SoldierAnimator : MonoBehaviour {
 	}
 
 	private void Update() {
+		//todo: temp death
+		if (Input.GetKeyDown(KeyCode.K) && !isDead) {
+			Die();
+		}
+
 		//bullet timer
 		if (shootTimer > 0) {
 			shootTimer -= Time.deltaTime;
@@ -61,6 +70,29 @@ public class SoldierAnimator : MonoBehaviour {
 		//counterbalance the stomach rotation
 		cameraHold.localRotation = Quaternion.Euler(currentRecoil * 1.2f, 0, 0);
 	}
+	public bool GetIsDead() {
+		return isDead;
+	}
+	public void Die() {
+		isDead = true;
+		GetComponent<Collider>().enabled = false;
+		GetComponent<Rigidbody>().isKinematic = true;
+		transform.GetChild(0).gameObject.SetActive(false);
+		StartCoroutine(Respawn());
+		DeathRagdoll d = Instantiate(deathDummyPrefab, transform.position, transform.rotation).GetComponent<DeathRagdoll>();
+		d.stomach.Rotate(stomachRotation, 0, 0, Space.Self);
+		d.cameraHold.transform.SetPositionAndRotation(cameraHold.position, cameraHold.rotation);
+	}
+	private IEnumerator Respawn() {
+		for (float i = 0; i < 5; i += Time.deltaTime) {
+			yield return null;
+		}
+		isDead = false;
+		transform.GetChild(0).gameObject.SetActive(true);
+		GetComponent<Rigidbody>().isKinematic = false;
+		GetComponent<Collider>().enabled = true;
+	}
+
 	public void ShootBullet() {
 		if (shootTimer <= 0) {
 			//add timer instead of setting it directly to compensate for deltaTime

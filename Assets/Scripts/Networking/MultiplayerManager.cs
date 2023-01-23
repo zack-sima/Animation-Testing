@@ -14,13 +14,18 @@ public class MultiplayerManager : NetworkManager {
 		base.Start();
 		players = new List<MultiplayerSoldier>();
 		instance = this;
+#if UNITY_STANDALONE_LINUX
+		StartServer();
+#endif
 	}
 
 	//all clients
 	public override void OnStartClient() {
+		base.OnStartClient();
 		placeholderCamera.SetActive(false);
 	}
 	public override void OnStopClient() {
+		base.OnStopClient();
 		placeholderCamera.SetActive(true);
 	}
 
@@ -34,6 +39,8 @@ public class MultiplayerManager : NetworkManager {
 		NetworkServer.AddPlayerForConnection(conn, player);
 	}
 	public override void OnServerDisconnect(NetworkConnectionToClient conn) {
+		base.OnServerDisconnect(conn); //server handels destruction of player
+
 		//clear out any destroyed player scripts
 		int i = 0;
 		while (i < players.Count) {

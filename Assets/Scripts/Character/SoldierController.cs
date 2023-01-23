@@ -28,6 +28,7 @@ public class SoldierController : MonoBehaviour {
 	}
 
 	void Update() {
+		if (animator.GetIsDead()) return;
 		UIOperations();
 		Movements();
 		Actions();

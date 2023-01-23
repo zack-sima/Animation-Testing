@@ -94,28 +94,29 @@ public class MultiplayerSoldier : NetworkBehaviour {
 		this.runAnimationSpeed = runAnimationSpeed;
 	}
 
+	//lag can only be calculated on client side
 	[Client]
-	public void ShotSuccessful() {
-		//todo: plays the hit sound and logs shot
-		print("hit!");
+	public void ShootBullet(int damage) {
+		double lag = NetworkTime.rtt / 2; //lag between caller and server
+		CmdShootBullet(damage, lag);
 	}
 	[Command]
-	public void ShootBullet(int damage) {
+	private void CmdShootBullet(int damage, double lag) {
 		//rewind everyone except self for lag compensation and check raycasting here
-		double lag = NetworkTime.rtt / 2; //lag between caller and server
 		foreach (MultiplayerSoldier s in MultiplayerManager.instance.players) {
 			if (s) { //check that script exists (player didn't leave)
 				s.RewindPosition(lag); //rewind all players
 			}
 		}
 
+		bool shotHit = false;
+
 		RaycastHit hit;
 		if (Physics.Raycast(animator.gun.raycastAnchor.position, animator.gun.raycastAnchor.forward, out hit, 200f)) {
 			MultiplayerSoldier hitEnemy;
 			if (hit.collider.TryGetComponent<MultiplayerSoldier>(out hitEnemy)) {
 				hitEnemy.health -= damage;
-				ShotSuccessful();
-
+				shotHit = true;
 				print(hit.collider.name + " lost " + damage + " health");
 			}
 		}
@@ -127,11 +128,17 @@ public class MultiplayerSoldier : NetworkBehaviour {
 		}
 
 		//client animation
-		ClientShootBullet();
+		ClientShootBullet(shotHit);
 	}
 	[ClientRpc]
-	public void ClientShootBullet() {
+	public void ClientShootBullet(bool hit) {
 		animator.ShootBullet();
+
+		//register hit
+		if (hit && isLocalPlayer) {
+			print("hit enemy!");
+			animator.hitSound.PlayOneShot(animator.hitSound.clip);
+		}
 	}
 
 	[Command]
@@ -140,6 +147,6 @@ public class MultiplayerSoldier : NetworkBehaviour {
 	}
 	[ClientRpc] //called on all clients to show animation
 	public void ClientReload() {
-		animator.Reload(soundOn: false);
+		if (!isLocalPlayer) animator.Reload(soundOn: false);
 	}
 }
