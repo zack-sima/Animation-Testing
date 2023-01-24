@@ -33,6 +33,8 @@ public class MultiplayerManager : NetworkManager {
 	public override void OnServerAddPlayer(NetworkConnectionToClient conn) {
 		// add player at correct spawn position
 		GameObject player = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
+		MultiplayerSoldier multiplayerClient = player.GetComponent<MultiplayerSoldier>();
+		SoldierAnimator animator = player.GetComponent<SoldierAnimator>();
 
 		//note: make sure the object exists when accessing
 		players.Add(player.GetComponent<MultiplayerSoldier>());

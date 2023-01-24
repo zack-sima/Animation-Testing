@@ -8,20 +8,28 @@ public class MultiplayerSoldier : NetworkBehaviour {
 	[SerializeField]
 	private GameObject mainCamera;
 
-	[SyncVar]
-	public bool running, aiming;
-	[SyncVar]
+	[SyncVar, HideInInspector]
+	public bool running, aiming, dying;
+	[SyncVar, HideInInspector]
 	public float walkAnimationSpeed, runAnimationSpeed;
 	[SyncVar]
-	public double health;
+	public double health = 100;
 
 	public readonly double maxHealth = 100;
+
+	private bool initialized;
 
 	private List<KeyValuePair<double, Vector3>> deltaPositions; //for lag compensation, remember the past 30 frames (~500ms)
 
 	private SoldierAnimator animator;
 	private SoldierController controller;
 
+	[Command] //initializes health, etc
+	public void ClientInitialization() {
+		this.health = maxHealth;
+		//clients auto-initialize once health is not 0
+		this.initialized = true;
+	}
 	private void Start() {
 		deltaPositions = new List<KeyValuePair<double, Vector3>>();
 		animator = GetComponent<SoldierAnimator>();
@@ -29,9 +37,17 @@ public class MultiplayerSoldier : NetworkBehaviour {
 
 		if (isLocalPlayer) {
 			//everything else by default on
+			animator.isPlayer = true;
+			animator.ResetAmmo();
+			UIManager.instance.UpdateAmmoDisplay(animator.gun.magBullets, animator.gun.totalBullets);
+
 			mainCamera.SetActive(true);
 			controller.StartMultiplayer(this);
+			ClientInitialization();
 		} else {
+			animator.cameraHold.gameObject.SetActive(false);
+			animator.isPlayer = false;
+
 			GetComponent<SoldierController>().enabled = false;
 			GetComponent<Rigidbody>().isKinematic = true;
 			GetComponent<Collider>().isTrigger = true;
@@ -40,16 +56,70 @@ public class MultiplayerSoldier : NetworkBehaviour {
 		}
 	}
 	private void Update() {
+		if (!initialized) {
+			if (health > 0 && isClient) {
+				initialized = true;
+			} else return;
+		}
+
 		deltaPositions.Add(new KeyValuePair<double, Vector3>(NetworkTime.time, transform.position));
 		if (deltaPositions.Count > 30) deltaPositions.RemoveAt(0);
 
-		//sync animations
 		if (!isLocalPlayer) {
+			//sync animations
 			animator.running = running;
 			animator.aiming = aiming;
 			animator.walkAnimationSpeed = walkAnimationSpeed;
 			animator.runAnimatonSpeed = runAnimationSpeed;
+		} else {
+			//health display
+			UIManager.instance.UpdateHealthDisplay((float)(health / maxHealth));
+
+			//check health for death animation
+			if (health <= 0 && !dying) {
+				print("no health");
+				KillPlayer();
+			}
+			//todo: temporary suicide key for testing
+			if (Input.GetKeyDown(KeyCode.K) && !dying) {
+				KillPlayer();
+			}
 		}
+		if (isServer) {
+			//healing
+			if (health < maxHealth) {
+				double newHealth = health + Time.deltaTime * 10;
+				if (newHealth > maxHealth) newHealth = maxHealth;
+				health = newHealth;
+			}
+		}
+	}
+	[Command]
+	private void KillPlayer() {
+		if (!dying) {
+			dying = true;
+			health = 0;
+			RpcKillPlayer();
+			StartCoroutine(RespawnPlayer());
+		}
+	}
+	[ClientRpc]
+	private void RpcKillPlayer() {
+		animator.Die();
+	}
+	[Server]
+	private IEnumerator RespawnPlayer() {
+		for (float t = 0; t < 5; t += Time.deltaTime) {
+			yield return null;
+		}
+		RpcRespawnPlayer();
+		health = maxHealth;
+		dying = false;
+	}
+	[ClientRpc]
+	private void RpcRespawnPlayer() {
+		animator.Respawn();
+		UIManager.instance.UpdateAmmoDisplay(animator.gun.magBullets, animator.gun.totalBullets);
 	}
 	private Vector3 tempDeltaPosition = Vector3.zero;
 	public void RewindPosition(double lagMS) {
@@ -76,7 +146,10 @@ public class MultiplayerSoldier : NetworkBehaviour {
 	public void UnRewindPosition() {
 		transform.position = tempDeltaPosition;
 	}
-
+	[Command]
+	public void SetHealth(double health) {
+		this.health = health;
+	}
 	[Command]
 	public void SetRunning(bool running) {
 		this.running = running;
@@ -115,9 +188,12 @@ public class MultiplayerSoldier : NetworkBehaviour {
 		if (Physics.Raycast(animator.gun.raycastAnchor.position, animator.gun.raycastAnchor.forward, out hit, 200f)) {
 			MultiplayerSoldier hitEnemy;
 			if (hit.collider.TryGetComponent<MultiplayerSoldier>(out hitEnemy)) {
-				hitEnemy.health -= damage;
-				shotHit = true;
-				print(hit.collider.name + " lost " + damage + " health");
+				//alive and can take damage
+				if (!hitEnemy.dying) {
+					hitEnemy.health -= damage;
+					shotHit = true;
+					print(hit.collider.name + " lost " + damage + " health");
+				}
 			}
 		}
 

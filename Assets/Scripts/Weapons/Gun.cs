@@ -21,10 +21,10 @@ public class Gun : MonoBehaviour {
 	private int damage;
 
 	[HideInInspector]
-	public int bullets, magBullets; //current ammo
+	public int totalBullets, magBullets; //current ammo
 
 	private void Start() {
-		bullets = maxBullets;
+		totalBullets = maxBullets;
 		magBullets = magSize;
 	}
 

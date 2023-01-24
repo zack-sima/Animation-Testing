@@ -64,7 +64,8 @@ public class SoldierController : MonoBehaviour {
 
 		//running (pc)
 		float speed = walkSpeed;
-		if (Input.GetKey(KeyCode.LeftShift) && verticalMove > 0 && !Input.GetMouseButton(1)) {
+		if (Input.GetKey(KeyCode.LeftShift) && verticalMove > 0 &&
+			!animator.aiming && !animator.GetReloading() && !animator.GetIsDead()) {
 			verticalMove = 1.7f;
 			speed = runSpeed;
 			animator.running = true;
@@ -119,11 +120,12 @@ public class SoldierController : MonoBehaviour {
 		}
 
 		//shooting
-		if (!animator.running && !animator.GetReloading() && animator.shootTimer <= 0 &&
+		if (!animator.running && animator.gun.magBullets > 0 && !animator.GetReloading() && animator.shootTimer <= 0 &&
 			(Input.GetMouseButton(0) && animator.gun.GetFullAuto() ||
 			Input.GetMouseButtonDown(0) && !animator.gun.GetFullAuto())) {
 
 			animator.ShootBullet();
+			UIManager.instance.UpdateAmmoDisplay(animator.gun.magBullets, animator.gun.totalBullets);
 
 			//todo: singleplayer implementation
 

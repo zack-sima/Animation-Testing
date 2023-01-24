@@ -4,11 +4,9 @@ using UnityEngine;
 
 //animation controller
 public class SoldierAnimator : MonoBehaviour {
-	//object assignment in editor
 	[SerializeField]
 	private Animator animator;
-	[SerializeField]
-	private Transform stomach, cameraHold; //change cameraHold position for recoil effect
+	public Transform stomach, cameraHold; //change cameraHold position for recoil effect
 	public Gun gun; //the gun currently in use
 	public AudioSource hitSound; //successful hit
 	[SerializeField]
@@ -27,17 +25,15 @@ public class SoldierAnimator : MonoBehaviour {
 	private float currentRecoil = 0;
 	private bool isDead = false;
 
+	[HideInInspector]
+	public bool isPlayer; //true if local player/singleplayer user
+
 	private void Start() {
 		walkAnimationSpeed = 0;
 		runAnimatonSpeed = 0;
 	}
 
 	private void Update() {
-		//todo: temp death
-		if (Input.GetKeyDown(KeyCode.K) && !isDead) {
-			Die();
-		}
-
 		//bullet timer
 		if (shootTimer > 0) {
 			shootTimer -= Time.deltaTime;
@@ -73,24 +69,36 @@ public class SoldierAnimator : MonoBehaviour {
 	public bool GetIsDead() {
 		return isDead;
 	}
+	//called externally
 	public void Die() {
 		isDead = true;
-		GetComponent<Collider>().enabled = false;
-		GetComponent<Rigidbody>().isKinematic = true;
+		if (isPlayer) {
+			GetComponent<Collider>().enabled = false;
+			GetComponent<Rigidbody>().isKinematic = true;
+		}
 		transform.GetChild(0).gameObject.SetActive(false);
-		StartCoroutine(Respawn());
 		DeathRagdoll d = Instantiate(deathDummyPrefab, transform.position, transform.rotation).GetComponent<DeathRagdoll>();
 		d.stomach.Rotate(stomachRotation, 0, 0, Space.Self);
-		d.cameraHold.transform.SetPositionAndRotation(cameraHold.position, cameraHold.rotation);
-	}
-	private IEnumerator Respawn() {
-		for (float i = 0; i < 5; i += Time.deltaTime) {
-			yield return null;
+		if (isPlayer) { //only enable camera for local player
+			d.cameraHold.transform.SetPositionAndRotation(cameraHold.position, cameraHold.rotation);
+		} else {
+			d.cameraHold.SetActive(false);
 		}
+	}
+	//called externally
+	public void Respawn() {
 		isDead = false;
 		transform.GetChild(0).gameObject.SetActive(true);
-		GetComponent<Rigidbody>().isKinematic = false;
-		GetComponent<Collider>().enabled = true;
+		if (isPlayer) {
+			GetComponent<Rigidbody>().isKinematic = false;
+			GetComponent<Collider>().enabled = true;
+		}
+
+		ResetAmmo();
+	}
+	public void ResetAmmo() {
+		gun.magBullets = gun.GetMagSize();
+		gun.totalBullets = gun.GetMaxBullets();
 	}
 
 	public void ShootBullet() {
@@ -100,6 +108,7 @@ public class SoldierAnimator : MonoBehaviour {
 			StartCoroutine(DisplayMuzzle());
 			StartCoroutine(AddRecoil(gun.GetRecoil()));
 			gun.gunSound.PlayOneShot(gun.gunSound.clip);
+			gun.magBullets--;
 		}
 	}
 	//reload animations
@@ -108,10 +117,11 @@ public class SoldierAnimator : MonoBehaviour {
 		return reloading;
 	}
 	public void Reload(bool soundOn = true) {
-		if (!reloading) {
+		if (!reloading && gun.magBullets < gun.GetMagSize() && gun.totalBullets > 0) {
 			StartCoroutine(ReloadTimeout(soundOn: soundOn));
 		}
 	}
+	//todo: stop reload sequence if weapon is switched midway
 	private IEnumerator ReloadTimeout(bool soundOn = true) {
 		reloading = true;
 
@@ -130,6 +140,19 @@ public class SoldierAnimator : MonoBehaviour {
 		if (soundOn) gun.reloadSound.PlayOneShot(gun.reloadSound.clip);
 
 		for (float t = 0; t < 2.5; t += Time.deltaTime) yield return null;
+
+		//perform reload of gun
+		if (gun.totalBullets > gun.GetMagSize() - gun.magBullets) {
+			//fill up mag
+			gun.totalBullets -= gun.GetMagSize() - gun.magBullets;
+			gun.magBullets = gun.GetMagSize();
+		} else {
+			//use up all bullets
+			gun.magBullets += gun.totalBullets;
+			gun.totalBullets = 0;
+		}
+
+		if (isPlayer) UIManager.instance.UpdateAmmoDisplay(gun.magBullets, gun.totalBullets);
 
 		reloading = false;
 		animator.SetBool("Reloading", false);

@@ -125,6 +125,7 @@ MonoBehaviour:
   mainCamera: {fileID: 497276326717181654}
   running: 0
   aiming: 0
+  dying: 0
   walkAnimationSpeed: 0
   runAnimationSpeed: 0
   health: 0

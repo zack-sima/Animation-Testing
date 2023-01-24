@@ -875,6 +875,6 @@ MonoBehaviour:
   shootSpeed: 0.09
   recoil: 0.5
   maxRecoil: 1
-  damage: 0
+  damage: 30
   bullets: 0
   magBullets: 0
