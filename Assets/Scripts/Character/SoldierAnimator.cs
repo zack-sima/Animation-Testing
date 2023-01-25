@@ -60,7 +60,6 @@ public class SoldierAnimator : MonoBehaviour {
 		} else {
 			animator.SetBool("Aiming", false);
 		}
-
 		//gun/camera vertical rotation (y)
 		stomach.localRotation = Quaternion.Euler(stomachRotation - currentRecoil * 1.2f, stomach.localEulerAngles.y, 0);
 		//counterbalance the stomach rotation
@@ -72,28 +71,35 @@ public class SoldierAnimator : MonoBehaviour {
 	//called externally
 	public void Die() {
 		isDead = true;
+
+		aiming = false;
+		reloading = false;
+		running = false;
+
+		DeathRagdoll d = Instantiate(deathDummyPrefab, transform.position, transform.rotation).GetComponent<DeathRagdoll>();
+		d.stomach.Rotate(stomachRotation, 0, 0, Space.Self);
+
 		if (isPlayer) {
 			GetComponent<Collider>().enabled = false;
 			GetComponent<Rigidbody>().isKinematic = true;
-		}
-		transform.GetChild(0).gameObject.SetActive(false);
-		DeathRagdoll d = Instantiate(deathDummyPrefab, transform.position, transform.rotation).GetComponent<DeathRagdoll>();
-		d.stomach.Rotate(stomachRotation, 0, 0, Space.Self);
-		if (isPlayer) { //only enable camera for local player
-			d.cameraHold.transform.SetPositionAndRotation(cameraHold.position, cameraHold.rotation);
 		} else {
 			d.cameraHold.SetActive(false);
 		}
+		for (int i = 0; i < animator.transform.childCount; i++) {
+			animator.transform.GetChild(i).gameObject.SetActive(false);
+		}
 	}
-	//called externally
-	public void Respawn() {
+	public void Respawn(Vector3 spawnpoint, bool changePosition = true) {
+		if (changePosition) transform.position = spawnpoint;
+
 		isDead = false;
-		transform.GetChild(0).gameObject.SetActive(true);
+		for (int i = 0; i < animator.transform.childCount; i++) {
+			animator.transform.GetChild(i).gameObject.SetActive(true);
+		}
 		if (isPlayer) {
 			GetComponent<Rigidbody>().isKinematic = false;
 			GetComponent<Collider>().enabled = true;
 		}
-
 		ResetAmmo();
 	}
 	public void ResetAmmo() {

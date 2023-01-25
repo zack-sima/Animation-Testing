@@ -5,15 +5,20 @@ using Mirror;
 
 [RequireComponent(typeof(SoldierController)), RequireComponent(typeof(SoldierAnimator))]
 public class MultiplayerSoldier : NetworkBehaviour {
+	public static MultiplayerSoldier playerInstance;
+
 	[SerializeField]
 	private GameObject mainCamera;
-
 	[SyncVar, HideInInspector]
 	public bool running, aiming, dying;
 	[SyncVar, HideInInspector]
 	public float walkAnimationSpeed, runAnimationSpeed;
 	[SyncVar]
 	public double health = 100;
+	[SyncVar]
+	public int kills, deaths;
+	[SyncVar]
+	public string playerName;
 
 	public readonly double maxHealth = 100;
 
@@ -31,18 +36,25 @@ public class MultiplayerSoldier : NetworkBehaviour {
 		this.initialized = true;
 	}
 	private void Start() {
+		Cursor.lockState = CursorLockMode.Locked;
+
 		deltaPositions = new List<KeyValuePair<double, Vector3>>();
 		animator = GetComponent<SoldierAnimator>();
 		controller = GetComponent<SoldierController>();
 
 		if (isLocalPlayer) {
-			//everything else by default on
+			SetName("Player");
+
+			ChooseSpawnpoint();
+
 			animator.isPlayer = true;
+			playerInstance = this;
 			animator.ResetAmmo();
 			UIManager.instance.UpdateAmmoDisplay(animator.gun.magBullets, animator.gun.totalBullets);
 
 			mainCamera.SetActive(true);
 			controller.StartMultiplayer(this);
+
 			ClientInitialization();
 		} else {
 			animator.cameraHold.gameObject.SetActive(false);
@@ -81,45 +93,86 @@ public class MultiplayerSoldier : NetworkBehaviour {
 				KillPlayer();
 			}
 			//todo: temporary suicide key for testing
-			if (Input.GetKeyDown(KeyCode.K) && !dying) {
+			if (Input.GetKeyDown(KeyCode.K) && !dying && !UIManager.paused) {
 				KillPlayer();
 			}
 		}
 		if (isServer) {
 			//healing
 			if (health < maxHealth) {
-				double newHealth = health + Time.deltaTime * 10;
+				double newHealth = health + Time.deltaTime * 5;
 				if (newHealth > maxHealth) newHealth = maxHealth;
 				health = newHealth;
 			}
 		}
 	}
+	[Server]
+	public void ServerUpdateStats() {
+		RpcUpdateStats(UIManager.GenerateLeaderboardsText(MultiplayerManager.instance));
+	}
+	[ClientRpc] //called by server to transmit data
+	public void RpcUpdateStats(string statsText) {
+		UIManager.instance.UpdateLeaderboards(statsText);
+	}
+
 	[Command]
 	private void KillPlayer() {
 		if (!dying) {
 			dying = true;
 			health = 0;
+			deaths++;
+			ServerUpdateStats();
 			RpcKillPlayer();
-			StartCoroutine(RespawnPlayer());
+			StartCoroutine(RespawnPlayer(5));
 		}
 	}
 	[ClientRpc]
 	private void RpcKillPlayer() {
 		animator.Die();
 	}
+	[Command]
+	private void ChooseSpawnpoint() {
+		RpcRespawnPlayer(FindSpawnpoint());
+	}
 	[Server]
-	private IEnumerator RespawnPlayer() {
-		for (float t = 0; t < 5; t += Time.deltaTime) {
+	private IEnumerator RespawnPlayer(float time) {
+		for (float t = 0; t < time; t += Time.deltaTime) {
 			yield return null;
 		}
-		RpcRespawnPlayer();
+		RpcRespawnPlayer(FindSpawnpoint());
 		health = maxHealth;
 		dying = false;
 	}
+	public Vector3 FindSpawnpoint() {
+		//find furthest spawnpoint
+		List<Transform> spawnpoints = new List<Transform>(GameController.instance.spawnpointParent.
+			GetComponentsInChildren<Transform>());
+
+		Transform furthestSpawnpoint = spawnpoints[Random.Range(0, spawnpoints.Count)];
+
+		float furthestDistance = 0;
+		if (MultiplayerManager.instance.players.Count > 1) {
+			foreach (Transform t in spawnpoints) {
+				float d = 10000;
+				foreach (MultiplayerSoldier s in MultiplayerManager.instance.players) {
+					if (s && s != this && Vector3.Distance(s.transform.position, t.position) < d) {
+						d = Vector3.Distance(s.transform.position, t.position);
+					}
+				}
+				if (d > furthestDistance) {
+					furthestDistance = d;
+					furthestSpawnpoint = t;
+				}
+			}
+		}
+		return furthestSpawnpoint.position;
+	}
 	[ClientRpc]
-	private void RpcRespawnPlayer() {
-		animator.Respawn();
-		UIManager.instance.UpdateAmmoDisplay(animator.gun.magBullets, animator.gun.totalBullets);
+	public void RpcRespawnPlayer(Vector3 spawnpoint) {
+		animator.Respawn(spawnpoint);
+		if (isLocalPlayer) {
+			UIManager.instance.UpdateAmmoDisplay(animator.gun.magBullets, animator.gun.totalBullets);
+		}
 	}
 	private Vector3 tempDeltaPosition = Vector3.zero;
 	public void RewindPosition(double lagMS) {
@@ -145,6 +198,11 @@ public class MultiplayerSoldier : NetworkBehaviour {
 	//must be called after rewind position!
 	public void UnRewindPosition() {
 		transform.position = tempDeltaPosition;
+	}
+	[Command]
+	public void SetName(string playerName) {
+		this.playerName = playerName;
+		ServerUpdateStats();
 	}
 	[Command]
 	public void SetHealth(double health) {
@@ -185,6 +243,11 @@ public class MultiplayerSoldier : NetworkBehaviour {
 		bool shotHit = false;
 
 		RaycastHit hit;
+		Quaternion originalRotation = animator.gun.raycastAnchor.rotation;
+		if (!aiming) {
+			//artificially scatter a little for non-ads shots
+			animator.gun.raycastAnchor.Rotate(Random.Range(-5f, 5f), Random.Range(-5f, 5f), Random.Range(-5f, 5f));
+		}
 		if (Physics.Raycast(animator.gun.raycastAnchor.position, animator.gun.raycastAnchor.forward, out hit, 200f)) {
 			MultiplayerSoldier hitEnemy;
 			if (hit.collider.TryGetComponent<MultiplayerSoldier>(out hitEnemy)) {
@@ -192,10 +255,15 @@ public class MultiplayerSoldier : NetworkBehaviour {
 				if (!hitEnemy.dying) {
 					hitEnemy.health -= damage;
 					shotHit = true;
+					if (hitEnemy.health <= 0) {
+						kills++;
+						ServerUpdateStats();
+					}
 					print(hit.collider.name + " lost " + damage + " health");
 				}
 			}
 		}
+		animator.gun.raycastAnchor.rotation = originalRotation;
 
 		foreach (MultiplayerSoldier s in MultiplayerManager.instance.players) {
 			if (s) { //check that script exists (player didn't leave)

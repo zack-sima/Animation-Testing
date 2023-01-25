@@ -29,20 +29,12 @@ public class SoldierController : MonoBehaviour {
 
 	void Update() {
 		if (animator.GetIsDead()) return;
-		UIOperations();
 		Movements();
 		Actions();
 	}
 	public void StartMultiplayer(MultiplayerSoldier multiplayerControl) {
 		this.multiplayerControl = multiplayerControl;
 		isMultiplayer = true;
-	}
-	private void UIOperations() {
-		//screen lock
-		if (Input.GetKeyDown(KeyCode.Escape))
-			Cursor.lockState = CursorLockMode.None;
-		if (Input.GetMouseButtonDown(0) && !Input.GetKey(KeyCode.Escape))
-			Cursor.lockState = CursorLockMode.Locked;
 	}
 	//checks whether player's feet are on the ground and can jump
 	private bool Grounded() {
@@ -85,8 +77,8 @@ public class SoldierController : MonoBehaviour {
 		}
 
 		//camera vertical rotation (x)
-		float vertical = -Input.GetAxis("Mouse Y") * Time.deltaTime * 1.5f;
-		float horizontal = Input.GetAxis("Mouse X") * Time.deltaTime * 1.5f;
+		float vertical = -Input.GetAxis("Mouse Y") * Time.deltaTime * UIManager.sensitivity / 2.5f;
+		float horizontal = Input.GetAxis("Mouse X") * Time.deltaTime * UIManager.sensitivity / 2.5f;
 		cameraX += vertical * rotateSpeed;
 		cameraX = Mathf.Clamp(cameraX, -cameraXBound, cameraXBound);
 		animator.stomachRotation = cameraX;
@@ -95,6 +87,10 @@ public class SoldierController : MonoBehaviour {
 		Quaternion rotation = transform.rotation * Quaternion.Euler(0, horizontal * rotateSpeed, 0);
 		rigidbody.MovePosition(translation);
 		rigidbody.MoveRotation(rotation);
+		//make sure there's only y rotation (rigidbody freeze somehow jitters)
+		//rigidbody.rotation = Quaternion.Euler(0, rigidbody.rotation.ToEulerAngles().y, 0);
+		//print(transform.eulerAngles);
+		rigidbody.inertiaTensorRotation = Quaternion.identity;
 
 		//multiplayer sync variables
 		if (isMultiplayer) {
@@ -104,6 +100,8 @@ public class SoldierController : MonoBehaviour {
 		}
 	}
 	private void Actions() {
+		if (UIManager.paused) return;
+
 		//aiming
 		if (!animator.GetReloading() && Input.GetMouseButton(1)) {
 			animator.aiming = true;
