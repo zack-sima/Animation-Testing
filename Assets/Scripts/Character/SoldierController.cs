@@ -58,7 +58,7 @@ public class SoldierController : MonoBehaviour {
 		float speed = walkSpeed;
 		if (Input.GetKey(KeyCode.LeftShift) && verticalMove > 0 &&
 			!animator.aiming && !animator.GetReloading() && !animator.GetIsDead()) {
-			verticalMove = 1.7f;
+			verticalMove = 1.9f;
 			speed = runSpeed;
 			animator.running = true;
 		} else {
@@ -66,7 +66,7 @@ public class SoldierController : MonoBehaviour {
 		}
 
 		//rigidbody movement
-		Vector3 translation = transform.forward * (verticalMove * Time.deltaTime);
+		Vector3 translation = transform.forward * (verticalMove * 1.5f * Time.deltaTime);
 		translation += transform.right * (horizontalMove * Time.deltaTime);
 		translation *= speed;
 		translation = rigidbody.position + translation;

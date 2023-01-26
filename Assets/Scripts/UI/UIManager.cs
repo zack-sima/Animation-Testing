@@ -8,7 +8,7 @@ public class UIManager : MonoBehaviour {
 	[SerializeField]
 	private Image healthDisplay;
 	[SerializeField]
-	private TMP_Text ammoText, leaderboardsText;
+	private TMP_Text ammoText, leaderboardsText, messagesText;
 	[SerializeField]
 	private Slider sensitivitySlider;
 	[SerializeField]
@@ -30,6 +30,9 @@ public class UIManager : MonoBehaviour {
 			t += s.playerName + ": " + s.kills + " / " + s.deaths + "\n";
 		}
 		return t;
+	}
+	public void UpdateMessages(string text) {
+		messagesText.text = text;
 	}
 	public void UpdateHealthDisplay(float healthPercent) {
 		healthDisplay.color = new Color(1, 1, 1, 1 - healthPercent);

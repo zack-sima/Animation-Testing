@@ -129,6 +129,9 @@ MonoBehaviour:
   walkAnimationSpeed: 0
   runAnimationSpeed: 0
   health: 0
+  kills: 0
+  deaths: 0
+  playerName: 
 --- !u!114 &185212011171580857
 MonoBehaviour:
   m_ObjectHideFlags: 0

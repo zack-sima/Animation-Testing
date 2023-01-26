@@ -7,6 +7,8 @@ using Mirror;
 public class MultiplayerSoldier : NetworkBehaviour {
 	public static MultiplayerSoldier playerInstance;
 
+	//TODO: THIS CLASS CANNOT BE USED TO STORE SERVER_ONLY ATTRIBUTES! MAKE A DEDICATED SERVER OBJECT TO TRACK VARIABLES
+
 	[SerializeField]
 	private GameObject mainCamera;
 	[SyncVar, HideInInspector]
@@ -43,7 +45,10 @@ public class MultiplayerSoldier : NetworkBehaviour {
 		controller = GetComponent<SoldierController>();
 
 		if (isLocalPlayer) {
-			SetName("Player");
+			//TODO: load this from playerprefs
+			string currPlayerName = "Player";
+
+			SetName(currPlayerName);
 
 			ChooseSpawnpoint();
 
@@ -54,6 +59,8 @@ public class MultiplayerSoldier : NetworkBehaviour {
 
 			mainCamera.SetActive(true);
 			controller.StartMultiplayer(this);
+
+			CmdAddMessage(currPlayerName + " joined the game", true);
 
 			ClientInitialization();
 		} else {
@@ -90,11 +97,11 @@ public class MultiplayerSoldier : NetworkBehaviour {
 			//check health for death animation
 			if (health <= 0 && !dying) {
 				print("no health");
-				KillPlayer();
+				KillPlayer(false);
 			}
 			//todo: temporary suicide key for testing
 			if (Input.GetKeyDown(KeyCode.K) && !dying && !UIManager.paused) {
-				KillPlayer();
+				KillPlayer(true);
 			}
 		}
 		if (isServer) {
@@ -106,22 +113,38 @@ public class MultiplayerSoldier : NetworkBehaviour {
 			}
 		}
 	}
+	[Command]
+	public void CmdAddMessage(string text, bool serverIssued) {
+		MultiplayerManager.instance.AddMessage(text, serverIssued);
+	}
+	[Server]
+	public void ServerUpdateMessages() {
+		RpcUpdateMessages(string.Join("", MultiplayerManager.instance.recentMessages));
+	}
+	[ClientRpc] //called by server to transmit data
+	public void RpcUpdateMessages(string text) {
+		UIManager.instance.UpdateMessages(text);
+	}
 	[Server]
 	public void ServerUpdateStats() {
 		RpcUpdateStats(UIManager.GenerateLeaderboardsText(MultiplayerManager.instance));
 	}
 	[ClientRpc] //called by server to transmit data
-	public void RpcUpdateStats(string statsText) {
-		UIManager.instance.UpdateLeaderboards(statsText);
+	public void RpcUpdateStats(string text) {
+		UIManager.instance.UpdateLeaderboards(text);
 	}
 
 	[Command]
-	private void KillPlayer() {
+	private void KillPlayer(bool suicide) {
 		if (!dying) {
 			dying = true;
 			health = 0;
 			deaths++;
 			ServerUpdateStats();
+
+			//if not suicide kill screen would be displayed
+			if (suicide) MultiplayerManager.instance.AddMessage(playerName + " died", true);
+
 			RpcKillPlayer();
 			StartCoroutine(RespawnPlayer(5));
 		}
@@ -249,14 +272,18 @@ public class MultiplayerSoldier : NetworkBehaviour {
 			animator.gun.raycastAnchor.Rotate(Random.Range(-5f, 5f), Random.Range(-5f, 5f), Random.Range(-5f, 5f));
 		}
 		if (Physics.Raycast(animator.gun.raycastAnchor.position, animator.gun.raycastAnchor.forward, out hit, 200f)) {
-			MultiplayerSoldier hitEnemy;
-			if (hit.collider.TryGetComponent<MultiplayerSoldier>(out hitEnemy)) {
+			BodyPartCollider hitBody;
+			MultiplayerSoldier hitEnemy = null;
+
+			if (hit.collider.TryGetComponent<BodyPartCollider>(out hitBody)) {
+				hitEnemy = hitBody.animator.GetComponent<MultiplayerSoldier>();
 				//alive and can take damage
-				if (!hitEnemy.dying) {
+				if (hitEnemy.health > 0 && !hitEnemy.dying) {
 					hitEnemy.health -= damage;
 					shotHit = true;
 					if (hitEnemy.health <= 0) {
 						kills++;
+						MultiplayerManager.instance.AddMessage(playerName + " -> " + hitEnemy.playerName, true);
 						ServerUpdateStats();
 					}
 					print(hit.collider.name + " lost " + damage + " health");

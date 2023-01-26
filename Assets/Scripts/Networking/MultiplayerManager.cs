@@ -10,6 +10,10 @@ public class MultiplayerManager : NetworkManager {
 	[HideInInspector]
 	public List<MultiplayerSoldier> players;
 
+	//NOTE: SERVER STORED ONLY, GIVEN TO CLIENTS WHENEVER UPDATED
+	//[HideInInspector]
+	public List<string> recentMessages;
+
 	new private void Start() {
 		base.Start();
 		players = new List<MultiplayerSoldier>();
@@ -21,6 +25,19 @@ public class MultiplayerManager : NetworkManager {
 	}
 	new private void Update() {
 		base.Update();
+	}
+	//SERVER CALLS ONLY!
+	public void AddMessage(string message, bool serverIssued) {
+		if (serverIssued) {
+			message = "<color=#eff542>" + message + "</color>\n";
+		} else {
+			message = "<color=#ffffff>" + message + "</color>\n";
+		}
+		recentMessages.Add(message);
+		if (recentMessages.Count > 10) {
+			recentMessages.RemoveAt(0);
+		}
+		players[0].ServerUpdateMessages();
 	}
 
 	//all clients
@@ -35,6 +52,9 @@ public class MultiplayerManager : NetworkManager {
 
 	public override void OnStartServer() {
 		base.OnStartServer();
+
+		//initialize serverside
+		recentMessages = new List<string>();
 	}
 
 	//spawn
@@ -52,7 +72,9 @@ public class MultiplayerManager : NetworkManager {
 		int i = 0;
 		while (i < players.Count) {
 			if (players[i] == null || players[i].connectionToClient == conn) {
-				//remove player
+				//remove player & send message
+				if (players[i]) AddMessage(players[i].playerName + " has joined the game", true);
+
 				players.RemoveAt(i);
 			} else {
 				i++;
@@ -62,7 +84,7 @@ public class MultiplayerManager : NetworkManager {
 
 		base.OnServerDisconnect(conn); //server handles destruction of player
 
-		MultiplayerSoldier.playerInstance.ServerUpdateStats();
+		players[0].ServerUpdateStats();
 	}
 
 }
