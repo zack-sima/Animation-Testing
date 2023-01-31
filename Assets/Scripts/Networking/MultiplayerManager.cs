@@ -83,8 +83,9 @@ public class MultiplayerManager : NetworkManager {
 		}
 
 		base.OnServerDisconnect(conn); //server handles destruction of player
-
-		players[0].ServerUpdateStats();
+		try {
+			players[0].ServerUpdateStats();
+		} catch { };
 	}
 
 }
